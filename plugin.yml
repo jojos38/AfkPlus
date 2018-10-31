@@ -1,0 +1,9 @@
+name: AfkPlus
+description: Afk plugin
+version: 1.0
+author: jojos38
+main: fr.jojos38.AfkPlus.Plugin
+commands:
+ afk:
+  description: Set yourself or someone Afk
+  permission: afkplus.afk
