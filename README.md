@@ -14,6 +14,10 @@ Afk plugin for Spigot
  - afkplus.afkplayers - Set other players afk
  - afkplus.beingafk - Permission to be afk
 
+# Commands list :
+ - /afk - Set yourself afk or not
+ - /afk [player] - Set other player afk
+
 # config.yml :  
 \# How many seconds before a player get Afk  
 time: 300  
