@@ -1,7 +1,7 @@
 # AfkPlus
 Afk plugin for Spigot
 
-What it does :
+# What it does :
  - Differents settings for when the player is no longer AFK (Send message, Move camera, Move, Interact with blocks, Interact with entity, Interact with air)
  - Edit all messages (Afk, No longer afk, Command permission, Player not found)
  - Edit player name in TAB list when they are afk (support colors) (exemple : [AFK] playername)
@@ -9,12 +9,12 @@ What it does :
  - Set afk other players if you have permission
  - Toggle afk with command
 
- Permissions list :
+# Permissions list :
  - afkplus.afk - Set yourself afk or not
  - afkplus.afkplayers - Set other players afk
  - afkplus.beingafk - Permission to be afk
 
-config.yml :
+# config.yml :  
 \# How many seconds before a player get Afk  
 time: 300  
 
