@@ -3,9 +3,10 @@ package fr.jojos38.AfkPlus;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.block.Block;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -18,42 +19,39 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.util.Vector;
 
 public class Plugin extends JavaPlugin implements Listener {
 
-	
-	
-	
-	
+
+
 	private int time = 300;
-	private Vector eyesLocationTemp;
-	private Block playerLocationTemp;
 	private boolean move = true, sendMessage = true, moveCamera = false, interactWithBlock = true, interactWithAir = false, interactWithEntity = true;
-	private Map<Player, Integer> timeMap = new HashMap<>();
-	public ArrayList<Player> afkList = new ArrayList<Player>();
-	
-	
-	
-	
-	
+	private Map<UUID, Integer> timeMap = new HashMap<>();
+	private Map<UUID, Location> lastLocation = new HashMap<>();
+	private Map<UUID, String> lastNickname = new HashMap<>();
+	public ArrayList<UUID> afkList = new ArrayList<UUID>();
+
+
+
 	public String formatMessage(String m, String player) {
 		String message = ChatColor.translateAlternateColorCodes('&', getConfig().getString(m)); // Get afk message
 		message = message.replace("{player}", player); // Replace {player} by the player name	
 		return message;
 	}
-	
-	
-	
-	
-	
+
+
+
 	public void setAfk(Player player) {
 		if (player.hasPermission("afkplus.beingafk")) { // If the player have permission to be afk
-			afkList.add(player); // Add the player to the list of Afk players
+			UUID playerUniqueID = player.getUniqueId();
+			afkList.add(playerUniqueID); // Add the player to the list of Afk players
 			if (getConfig().getBoolean("show-afk-in-tab-list") == true) { // If afk in tab list is enabled
 				String message = ChatColor.translateAlternateColorCodes('&', getConfig().getString("afk-tab-list-display")); // Get afk in tab list message
-				message = message.replace("{player}", player.getName()); // Replace {player} by the player name			
-				player.setPlayerListName(message);		
+				String playerListName = player.getPlayerListName();
+				lastNickname.put(playerUniqueID, playerListName);
+				message = message.replace("{player}", player.getPlayerListName()); // Replace {player} by the player name
+				player.setPlayerListName(message);
+				;
 			}		
 			if (getConfig().getBoolean("enable-afk-messages") == true) { // If afk message is enabled
 				String message = formatMessage("afk-message", player.getName()); // Get message
@@ -61,14 +59,17 @@ public class Plugin extends JavaPlugin implements Listener {
 			}
 		}
 	}
-	
+
+
+
 	public void resetPlayerTimer(Player player) {
-		timeMap.put(player, 0); // Reset the player timer to 0
-		if (afkList.contains(player)) { // If player is afk
-			afkList.remove(player); // Remove him from afk list		
+		UUID playerUniqueID = player.getUniqueId();
+		timeMap.put(playerUniqueID, 0); // Reset the player timer to 0
+		if (afkList.contains(playerUniqueID)) { // If player is afk
+			afkList.remove(playerUniqueID); // Remove him from afk list		
 			if (getConfig().getBoolean("show-afk-in-tab-list") == true) { // If afk in tab list is enabled
 				String message = ChatColor.translateAlternateColorCodes('&', getConfig().getString("no-longer-afk-tab-list-display")); // Get no longer afk in tab list message
-				message = message.replace("{player}", player.getName()); // Replace {player} by the player name			
+				message = message.replace("{player}", lastNickname.get(playerUniqueID)); // Replace {player} by the player name			
 				player.setPlayerListName(message); // Remove [afk] in tab list	
 			}
 			if (getConfig().getBoolean("enable-no-longer-afk-messages") == true) { // If no longer afk message is enabled
@@ -77,42 +78,33 @@ public class Plugin extends JavaPlugin implements Listener {
 			}
 		}
 	}
-	
-	
-	
-	
-	
+
+
+
 	private void schedule() {		
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             @Override
             public void run() {
-            	for (Map.Entry<Player, Integer> entry : timeMap.entrySet()) { // Get all players in timeMap             		
-            		Player player = entry.getKey(); // Get player
-            		int timer = entry.getValue(); // Get his timer	
-            	    if (timer >= time && !afkList.contains(player)) { // If time have been exceeded and player is not already afk
-            	    	setAfk(player);
-            	    }           
-            	    if (!afkList.contains(player) && timer <= time) { // If player is not afk
-                	    timeMap.put(player, timer + 1); // Add 1 to their timer 
-            	    }      	    
-            	    if (timer == 1 && moveCamera == true) { // Avoid a small bug with camera move
-            	    	eyesLocationTemp = player.getEyeLocation().getDirection();
-            	    }           	       	        
+            	for (Map.Entry<UUID, Integer> entry : timeMap.entrySet()) { // Get all players in timeMap             		
+            		UUID playerUniqueID = entry.getKey(); // Get player
+            		int timer = entry.getValue(); // Get his timer
+            		if (!afkList.contains(playerUniqueID)) { // If the player is not already AFK
+            			if (timer >= time) { // If the time is out
+            				setAfk(Bukkit.getPlayer(playerUniqueID)); // Set him AFK
+            			} else { // Else
+            				timeMap.put(playerUniqueID, timer + 1); // Increase their timer
+            			}
+            		}
             	}    	
             }
-        }, 0, 20);
+        }, 0, 20); // In ticks
 	}
 
-	
-	
-	
 
-	public void onEnable() { //Lorsque le plugin est activé	
-		this.getServer().getPluginManager().registerEvents(this, this);	// Register all events
+	
+	public void loadConfig() {
 		getConfig().options().copyDefaults(true); // Get config file
 		saveDefaultConfig(); // Create config file
-		getCommand("afk").setExecutor(new AfkCommand(this)); // Create afk command
-		
 		// Afk settings list
 		time               = getConfig().getInt    ("time");
 		move               = getConfig().getBoolean("move");
@@ -121,70 +113,69 @@ public class Plugin extends JavaPlugin implements Listener {
 		interactWithEntity = getConfig().getBoolean("interact-with-entity");
 		moveCamera         = getConfig().getBoolean("move-camera");
 		sendMessage        = getConfig().getBoolean("send-message");
-		
+	}
+	
+	
+
+	public void onEnable() { //Lorsque le plugin est activé	
+		this.getServer().getPluginManager().registerEvents(this, this);	// Register all events
+		getCommand("afk").setExecutor(new AfkCommand(this)); // Create afk command
+		getCommand("afkplusreload").setExecutor(new AfkCommand(this)); // Create afk command
+		loadConfig();
 		schedule(); // Start the timer
 		System.out.println("[AfkPlus] Loaded successfully");
 	}
-	
-	
-	
-	
-	
+
+
+
 	public void onDisable(){
 		System.out.println("[AfkPlus] Disabled successfully");
 	}	
-	
-	
-	
-	
-	
+
+
+
 	@EventHandler
-	public void onMove(PlayerMoveEvent e) {	
+	public void onMove(PlayerMoveEvent e) {
 		Player player = e.getPlayer(); // Get player
-		if (move == true) { // If movement enabled in settings
-			if (playerLocationTemp != null) { // To avoid error at the first execution
-				if (!playerLocationTemp.equals(player.getLocation().getBlock())) { // If player location has changed
-					resetPlayerTimer(player); // Reset afk timer
-				}
-			}			
-			playerLocationTemp = player.getLocation().getBlock();
+		UUID playerUniqueID = player.getUniqueId();
+		Location lastPlayerLocation = lastLocation.get(playerUniqueID);
+		if (move) { // If movement enabled in settings
+			if (!lastPlayerLocation.getBlock().equals(player.getLocation().getBlock())) { // If player location has changed
+				resetPlayerTimer(player); // Reset afk timer
+				lastLocation.put(playerUniqueID, lastPlayerLocation);
+			}
 		}
-		if (moveCamera == true) { // If camera enabled in the settings	
-			if (eyesLocationTemp != null) { // To avoid error at the first execution
-				if (!eyesLocationTemp.equals(player.getEyeLocation().getDirection())) { // If player camera has moved
-					resetPlayerTimer(player); // Reset afk timer
-				}
-			}			
-			eyesLocationTemp = player.getEyeLocation().getDirection();
+		if (moveCamera) { // If camera enabled in the settings
+			if (!lastPlayerLocation.getDirection().equals(player.getEyeLocation().getDirection())) { // If player camera has moved
+				resetPlayerTimer(player); // Reset afk timer
+				lastLocation.put(playerUniqueID, lastPlayerLocation);
+			}
 		}	
 	}	
-	
-	
-	
-	
-	
-	@EventHandler(priority=EventPriority.NORMAL)
-	public void onPlayerJoin(PlayerJoinEvent e) {		
-		timeMap.put(e.getPlayer(), 0); // If player connect add him to the player time list   
-	}
-	
-	
 
-	
-	
+
+
+	@EventHandler(priority=EventPriority.NORMAL)
+	public void onPlayerJoin(PlayerJoinEvent e) {
+		UUID playerUniqueID = e.getPlayer().getUniqueId();
+		timeMap.put(playerUniqueID, 0); // If player connect add him to the player time list
+		lastLocation.put(playerUniqueID, e.getPlayer().getLocation());
+	}
+
+
+
 	@EventHandler(priority=EventPriority.NORMAL)
 	public void OnPlayerQuit(PlayerQuitEvent e) {
-		timeMap.remove(e.getPlayer()); // If player disconnect remove him from the time list
+		UUID playerUniqueID = e.getPlayer().getUniqueId();
+		timeMap.remove(playerUniqueID); // If player disconnect remove him from the time list
+		afkList.remove(playerUniqueID);
 	}
-	
-	
-	
-	
-	
+
+
+
 	@EventHandler
 	public void onInteract(PlayerInteractEvent e) {
-
-		if (interactWithAir == true) { // If interact with air is enabled in settings
+		if (interactWithAir) { // If interact with air is enabled in settings
 			if (e.getClickedBlock() == null) { // If interacted block is air
 				resetPlayerTimer(e.getPlayer()); // Reset afk timer
 			}	
@@ -195,18 +186,15 @@ public class Plugin extends JavaPlugin implements Listener {
 			}	
 		}		
 	}	    
-	
-	
-	
-	
-	
+
+
+
     @EventHandler
     public void EntityDamageByEntityEvent(EntityDamageByEntityEvent e) {
-    	if (interactWithEntity == true) { // If interact with entity enabled in settings
+    	if (interactWithEntity) { // If interact with entity enabled in settings
             if (e.getDamager() instanceof Player) { // If the damager is a player
             	resetPlayerTimer((Player) e.getDamager()); // Reset his timer
-            }
-            
+            }           
             if (e.getEntity() instanceof Projectile) { // If the player got hit by arrow
             	Projectile p = (Projectile) e.getEntity(); // Convert entity to arrow
             	resetPlayerTimer((Player) p.getShooter()); // Get the shooter
@@ -215,17 +203,13 @@ public class Plugin extends JavaPlugin implements Listener {
             }
     	}  
     }
-	
-	
-    
-    
-    
+
+
+
 	@EventHandler
 	public void onPlayerChat(AsyncPlayerChatEvent e) {
-		if (sendMessage == true) { // If send messages enabled in settings
+		if (sendMessage) { // If send messages enabled in settings
 			resetPlayerTimer(e.getPlayer()); // Reset afk timer
 		}
 	}
 }
-	
-

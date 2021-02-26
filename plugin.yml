@@ -1,9 +1,22 @@
 name: AfkPlus
 description: Afk plugin
-version: 1.0
+version: 1.1
 author: jojos38
 main: fr.jojos38.AfkPlus.Plugin
 commands:
- afk:
-  description: Set yourself or someone Afk
-  permission: afkplus.afk
+    afk:
+        description: Set yourself or someone afk
+        permission: afkplus.afk
+    afkplusreload:
+        description: Reload the configuration
+        permission: afkplus.reload
+permissions:
+    afkplus.beingafk:
+        description: Allows you to become afk
+        default: true
+    afkplus.afkplayers:
+        description: Allows you to set someone else afk
+        default: false
+    afkplus.reload:
+        description: Allows you to reload the configuration
+        default: op
